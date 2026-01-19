@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BlueChat V3</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lexend+Exa:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body { margin: 0; font-family: sans-serif; overflow: hidden; color: white; transition: background 2s; }
+        /* 昼夜背景 */
+        .day-bg { background: linear-gradient(to bottom, #4facfe, #00f2fe), url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1920'); background-size: cover; background-blend-mode: overlay; }
+        .night-bg { background: linear-gradient(to bottom, #09203f, #537895), url('https://images.unsplash.com/photo-1506318137071-a8e063b4bc04?w=1920'); background-size: cover; background-blend-mode: overlay; }
+        
+        .full-screen { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
+        .hidden { display: none !important; }
+        .glass { background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); padding: 30px; border-radius: 20px; text-align: center; width: 90%; max-width: 400px; border: 1px solid rgba(255,255,255,0.2); }
+        .title-text { font-family: 'Lexend Exa', sans-serif; font-size: 60px; text-shadow: 0 10px 20px rgba(0,0,0,0.5); margin-bottom: 20px; }
+        input { width: 100%; padding: 15px; margin: 10px 0; border-radius: 10px; border: none; box-sizing: border-box; font-size: 16px; }
+        .btn-main { padding: 15px 40px; border-radius: 30px; border: none; background: white; color: #0078d4; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.2s; width: 100%; margin-top: 10px; }
+        .btn-main:hover { transform: scale(1.05); }
+
+        /* 通話画面UI */
+        #screen-call { height: 100vh; background: #202124; display: flex; flex-direction: column; }
+        .video-container { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .controls { height: 80px; display: flex; justify-content: center; align-items: center; gap: 15px; background: rgba(0,0,0,0.8); }
+        .icon-btn { width: 50px; height: 50px; border-radius: 50%; border: none; background: #3c4043; color: white; font-size: 24px; cursor: pointer; }
+        .red { background: #ea4335; }
+        
+        /* サイドバー */
+        .sidebar { position: fixed; right: 0; top: 0; width: 300px; height: 100%; background: white; color: #333; transform: translateX(100%); transition: 0.3s; z-index: 999; padding: 20px; box-sizing: border-box; }
+        .sidebar.open { transform: translateX(0); }
+    </style>
+</head>
+<body class="day-bg">
+    <div style="position:fixed; top:10px; right:10px; font-weight:bold;">V3 Fast</div>
+
+    <div id="screen-title" class="full-screen">
+        <div class="title-text">Blue Chat</div>
+        <button class="btn-main" style="width:auto;" onclick="startCaptcha()">スタート</button>
+    </div>
+
+    <div id="screen-captcha" class="full-screen hidden">
+        <div class="glass">
+            <h3>🤖 ロボット認証</h3>
+            <p id="kuku-q" style="font-size: 30px; font-weight: bold;"></p>
+            <input type="number" id="kuku-a" placeholder="答えを入力">
+            <button class="btn-main" onclick="checkCaptcha()">次へ</button>
+        </div>
+    </div>
+
+    <div id="screen-nick" class="full-screen hidden">
+        <div class="glass">
+            <h3>プロフィール設定</h3>
+            <input type="text" id="my-nick" placeholder="ニックネーム">
+            <p style="font-size: 12px; color: #ffadad;">※本名は使用しないでください</p>
+            <button class="btn-main" onclick="goMenu()">決定</button>
+        </div>
+    </div>
+
+    <div id="screen-menu" class="full-screen hidden">
+        <div class="glass">
+            <button class="btn-main" onclick="showRoomInput()">通話</button>
+            <button class="btn-main" style="background: #ccc; color: #666;" onclick="alert('メンテナンス中')">メッセージ</button>
+        </div>
+    </div>
+
+    <div id="screen-room-input" class="full-screen hidden">
+        <div class="glass">
+            <h3>通話に参加 / 作成</h3>
+            <input type="text" id="room-id" placeholder="通話ID (6文字推奨)" maxlength="6">
+            <button class="btn-main" onclick="joinRoom()">会話を始める準備</button>
+            <button class="btn-main" style="background: transparent; color: white; border: 1px solid white;" onclick="backToMenu()">戻る</button>
+        </div>
+    </div>
+
+    <div id="screen-call" class="hidden">
+        <div style="position:absolute; top:10px; left:20px; z-index:100; text-shadow:1px 1px 2px black;">
+            <span id="call-clock">00:00</span> | ID: <span id="call-id-disp">---</span>
+        </div>
+        <div class="video-container">
+            <video id="main-video" autoplay playsinline></video>
+        </div>
+        <div class="controls">
+            <button class="icon-btn" onclick="toggleMute()">🎤</button>
+            <button class="icon-btn" onclick="toggleCam()">📷</button>
+            <button class="icon-btn" onclick="shareScreen()">📤</button>
+            <button class="icon-btn" onclick="toggleChat()">💬</button>
+            <button class="icon-btn" id="btn-admin" onclick="toggleAdmin()">⚙️</button>
+            <button class="icon-btn red" onclick="leaveRoom()">📞</button>
+        </div>
+
+        <div id="side-chat" class="sidebar">
+            <h3>チャット</h3>
+            <div id="chat-logs" style="height: 70%; overflow-y: auto; border-bottom: 1px solid #eee;"></div>
+            <input type="text" id="chat-input" placeholder="メッセージ (@メンション)">
+            <button class="btn-main" onclick="sendMsg()">送信</button>
+            <button onclick="toggleChat()" style="margin-top:10px;">閉じる</button>
+        </div>
+
+        <div id="side-admin" class="sidebar">
+            <h3>主催者設定</h3>
+            <button class="btn-main" onclick="adminAction('lock')">通話ロック切替</button>
+            <button class="btn-main" style="background:#ea4335; color:white;" onclick="adminAction('kick-all')">全員強制退出</button>
+            <button onclick="toggleAdmin()" style="margin-top:10px;">閉じる</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="client.js"></script>
+</body>
+</html>
